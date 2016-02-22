@@ -29,27 +29,30 @@ class Server:
 	debug = False
 	port=9001
 
-	def __init__(self, port = 9001, usessl = True, sslcert = "server.crt", sslkey= "server.key", privateKeyFile = 'dhserver.key', clientsFile = "clients.json"):
+	def __init__(self, port = 9001, usessl = True, sslcert = "server.crt", sslkey= "server.key", auth=None, privateKeyFile = 'dhserver.key', clientsFile = "clients.json"):
 		self.port = port
 		self.sslcert = sslcert
 		self.sslkey = sslkey
-		self.diffieHelmut = DH(privateKeyFile)
 		self.ssl = usessl
+		self.auth = auth
 
-		try:
-			with open(clientsFile) as cf:
-				data = cf.read()
-				data = json.loads(data)
-				if data.__class__ == dict:
-					self.knownClients = data
-		except:
-			print("exception while parsing {0}".format(clientsFile))
-			exc_type, exc_value, exc_traceback = sys.exc_info()
-			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
-			traceback.print_exception(exc_type, exc_value, exc_traceback,
-                          limit=2, file=sys.stdout)
+		if self.auth:
+			self.diffieHelmut = DH(privateKeyFile)
 
-		self.secret = self.diffieHelmut.secret
+			try:
+				with open(clientsFile) as cf:
+					data = cf.read()
+					data = json.loads(data)
+					if data.__class__ == dict:
+						self.knownClients = data
+			except:
+				print("exception while parsing {0}".format(clientsFile))
+				exc_type, exc_value, exc_traceback = sys.exc_info()
+				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+				traceback.print_exception(exc_type, exc_value, exc_traceback,
+	                          limit=2, file=sys.stdout)
+
+			self.secret = self.diffieHelmut.secret
 
 	def registerClient(self, client):
 		self.clients.append(Client(client))
@@ -81,6 +84,9 @@ class Server:
 
 	def authenticate(self, client, sharedSecret):
 		#TODO: do real authentication
+		if not self.auth:
+			return
+
 		try:
 			for c in self.clients:
 				if c.handle == client:
@@ -167,6 +173,10 @@ class ResourceProtocol(WebSocketServerProtocol):
 	def onOpen(self):
 		print("WebSocket connection open.")
 		ResourceProtocol.server.registerClient(self)
+		
+		if not ResourceProtocol.server.auth:
+			return
+
 		# send our shared secret:
 		print("sending auth to client")
 		payload = { "type" : "auth", "sharedSecret" : str(ResourceProtocol.server.diffieHelmut.sharedSecret) }
@@ -177,10 +187,12 @@ class ResourceProtocol(WebSocketServerProtocol):
 		if isBinary:
 			print("Binary message received: {0} bytes".format(len(payload)))
 			ResourceProtocol.server.onBinaryMessage(msg, self)
+		
 		else:
+
 			msg = json.loads(payload.decode('utf8'))
 			
-			if 'sharedSecret' in msg and 'type' in msg and msg['type'] == 'auth':
+			if ResourceProtocol.server.auth and 'sharedSecret' in msg and 'type' in msg and msg['type'] == 'auth':
 				# {'type' : 'auth', 'sharedSecret' : 'key'}
 				ResourceProtocol.server.authenticate(self, int(msg['sharedSecret']))
 			else:
