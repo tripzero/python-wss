@@ -8,15 +8,10 @@ from binascii import hexlify
 import json
 
 class Client:
-	isAuthenticated = False
-
 	def __init__(self, handle):
 		self.handle = handle
 
 	def sendMessage(self, msg, isBinary):
-		if not self.isAuthenticated:
-			return
-
 		self.handle.sendMessage(msg, isBinary)
 
 class Server:
@@ -105,6 +100,7 @@ class Server:
 						print("failed attempt at authenticating.  shared secret is not in clients file")
 						print("\"{0}\" : \"{1}\",".format(sharedSecret, symmetricKey))
 						c.handle.sendClose()
+						self.clients.remove(c)
 		except:
 			print("exception in authenticate()")
 			exc_type, exc_value, exc_traceback = sys.exc_info()
