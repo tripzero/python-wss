@@ -22,11 +22,12 @@ class Client:
 	binaryHandler = None
 	textHandler = None
 
-	def connectTo(self, addy, port, useSsl = True):
+	def connectTo(self, addy, port, useSsl = True, auth=False):
 		ws = "ws"
 		self.address = addy
 		self.port = port
 		self.useSsl = useSsl
+		self.auth=auth
 		
 		sslcontext = None
 
@@ -38,8 +39,8 @@ class Client:
 		debug("connectTo: " + self.wsaddress)
 
 		factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug)
-		factory.protocol = MyClientProtocol
 		factory.client = self
+		factory.protocol = MyClientProtocol
 		MyClientProtocol.onCloseHandler = self.onClose
 
 		try:
@@ -47,6 +48,10 @@ class Client:
 			coro = loop.create_connection(factory, addy, port, ssl=sslcontext)
 			loop.run_until_complete(coro)
 		except:
+			exc_type, exc_value, exc_traceback = sys.exc_info()
+			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+			traceback.print_exception(exc_type, exc_value, exc_traceback,
+					file=sys.stdout)
 			print ("connection failed")
 
 	def run(self):
@@ -92,6 +97,7 @@ class MyClientProtocol(WebSocketClientProtocol):
 	def __init__(self):
 		WebSocketClientProtocol.__init__(self)
 		
+
 		self.diffieHelmut = DiffieHelmut('dhclient.key')
 
 	def onConnect(self, response):
@@ -102,19 +108,20 @@ class MyClientProtocol(WebSocketClientProtocol):
 
 		self.factory.client.registerClient(self)
 
-		try:
-			payload = { "type" : "auth", "sharedSecret" : str(self.diffieHelmut.sharedSecret) }
-			payload = json.dumps(payload)
+		if self.factory.client.auth:
 			try:
-				self.sendMessage(bytes(payload, 'utf8'), False)
+				payload = { "type" : "auth", "sharedSecret" : str(self.diffieHelmut.sharedSecret) }
+				payload = json.dumps(payload)
+				try:
+					self.sendMessage(bytes(payload, 'utf8'), False)
+				except:
+					#probably on python2
+					self.sendMessage(payload, False)
 			except:
-				#probably on python2
-				self.sendMessage(payload, False)
-		except:
-			exc_type, exc_value, exc_traceback = sys.exc_info()
-			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
-			traceback.print_exception(exc_type, exc_value, exc_traceback,
-					limit=2, file=sys.stdout)
+				exc_type, exc_value, exc_traceback = sys.exc_info()
+				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+				traceback.print_exception(exc_type, exc_value, exc_traceback,
+						limit=2, file=sys.stdout)
 
 	def onMessage(self, payload, isBinary):
 		if isBinary:
