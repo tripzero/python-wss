@@ -45,7 +45,7 @@ class Server:
 				exc_type, exc_value, exc_traceback = sys.exc_info()
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
-	                          limit=2, file=sys.stdout)
+	                          limit=6, file=sys.stdout)
 
 			self.secret = self.diffieHelmut.secret
 
@@ -187,7 +187,7 @@ class ResourceProtocol(WebSocketServerProtocol):
 		else:
 
 			msg = json.loads(payload.decode('utf8'))
-			
+
 			if ResourceProtocol.server.auth and 'sharedSecret' in msg and 'type' in msg and msg['type'] == 'auth':
 				# {'type' : 'auth', 'sharedSecret' : 'key'}
 				ResourceProtocol.server.authenticate(self, int(msg['sharedSecret']))
@@ -241,3 +241,4 @@ if __name__ == "__main__":
 
 	s.start()
 	loop.run_forever()
+
