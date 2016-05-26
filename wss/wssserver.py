@@ -182,17 +182,16 @@ class ResourceProtocol(WebSocketServerProtocol):
 	def onMessage(self, payload, isBinary):
 		if isBinary:
 			print("Binary message received: {0} bytes".format(len(payload)))
-			ResourceProtocol.server.onBinaryMessage(msg, self)
+			ResourceProtocol.server.onBinaryMessage(payload, self)
 		
 		else:
 
-			msg = json.loads(payload.decode('utf8'))
-
 			if ResourceProtocol.server.auth and 'sharedSecret' in msg and 'type' in msg and msg['type'] == 'auth':
+				msg = json.loads(payload.decode('utf8'))
 				# {'type' : 'auth', 'sharedSecret' : 'key'}
 				ResourceProtocol.server.authenticate(self, int(msg['sharedSecret']))
 			else:
-				ResourceProtocol.server.onMessage(msg, self)
+				ResourceProtocol.server.onMessage(payload, self)
 
 	def onClose(self, wasClean, code, reason):
 		try:
