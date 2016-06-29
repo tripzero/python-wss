@@ -17,10 +17,14 @@ def debug(msg):
 		print(msg)
 
 class Client:
-	handle = None
-	debug = False
-	binaryHandler = None
-	textHandler = None
+
+	def __init__(self, retry=False, loop = asyncio.get_event_loop()):
+		self.retry = retry
+		self.loop = loop
+		self.handle = None
+		self.debug = False
+		self.binaryHandler = None
+		self.textHandler = None
 
 	def connectTo(self, addy, port, useSsl = True, auth=False):
 		ws = "ws"
@@ -29,37 +33,86 @@ class Client:
 		self.useSsl = useSsl
 		self.auth=auth
 		
-		sslcontext = None
+		self.sslcontext = None
 
 		if useSsl:
 			ws = "wss"
-			sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+			self.sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 
 		self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
 		debug("connectTo: " + self.wsaddress)
 
-		factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug)
-		factory.client = self
-		factory.protocol = MyClientProtocol
+		self.factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug)
+		self.factory.client = self
+		self.factory.protocol = MyClientProtocol
+
 		MyClientProtocol.onCloseHandler = self.onClose
 
+		self._do_connect()
+
+	def _do_connect(self):
+		if self.retry:
+			self.loop.create_task(self._connect_retry())
+		else:
+			self.loop.create_task(self._connect_once())
+
+	def _connect(self):
+		return self.loop.create_connection(self.factory, self.address, self.port, ssl=self.sslcontext)
+		
+	@asyncio.coroutine
+	def _connect_once(self):
 		try:
-			loop = asyncio.get_event_loop()
-			coro = loop.create_connection(factory, addy, port, ssl=sslcontext)
-			loop.run_until_complete(coro)
+			yield asyncio.From(self._connect())
+
+		except asyncio.py33_exceptions.ConnectionRefusedError:
+			print("connection refused")
+ 
+		except OSError:
+			print("connection failed")
+			
 		except:
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
 					file=sys.stdout)
 			print ("connection failed")
-			return False
 
-		return True
+	@asyncio.coroutine
+	def _connect_retry(self):
+		timeout = 5
+		maxtimeout = 60
 
-	def run(self):
-		loop = asyncio.get_event_loop()
-		loop.run_forever()
+		while True:
+			try:
+				debug("connecting...")
+				yield asyncio.From(self._connect())
+
+				debug("connected!")
+				return
+
+			except asyncio.py33_exceptions.ConnectionRefusedError:
+				print("connection refused. retry in {} seconds...".format(timeout))
+				yield asyncio.From(asyncio.sleep(timeout))
+				if timeout < maxtimeout:
+					timeout += 2
+
+				continue
+
+			except OSError:
+				print("connection failed. retry in {} seconds...".format(timeout))
+				yield asyncio.From(asyncio.sleep(timeout))
+
+				if timeout < maxtimeout:
+					timeout += 2
+
+				continue
+
+			except:
+				exc_type, exc_value, exc_traceback = sys.exc_info()
+				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+				traceback.print_exception(exc_type, exc_value, exc_traceback,
+						file=sys.stdout)
+				print ("connection failed")
 
 	def setBinaryHandler(self, binaryHandlerCallback):
 		self.binaryHandler = binaryHandlerCallback
@@ -71,19 +124,8 @@ class Client:
 		self.client.sendMessage(msg, False)
 
 	def onClose(self, wasClean, code, reason):
-		print ("Disconnected.  Trying to reconnect.")
-		if self.reconnect:
-			@asyncio.coroutine
-			def reconnectLoop():
-				fail = False
-				while not fail:
-					fail = False
-					try:
-						self.connectTo(self.addy, self.port, self.useSsl)
-					except:
-						fail = True
-					yield asyncio.From(asyncio.sleep(10))
-
+		if self.retry:
+			self._do_connect()
 
 	def registerClient(self, clientHndl):
 		self.client = clientHndl
@@ -100,7 +142,6 @@ class MyClientProtocol(WebSocketClientProtocol):
 	def __init__(self):
 		WebSocketClientProtocol.__init__(self)
 		
-
 		self.diffieHelmut = DiffieHelmut('dhclient.key')
 
 	def onConnect(self, response):
@@ -164,11 +205,14 @@ if __name__ == "__main__":
 	def textHandler(msg):
 		print(msg)
 
-	client = Client()
+	loop = asyncio.get_event_loop()
+	client = Client(retry=True, loop=loop)
 
 	client.debug = args.debug
 	
 	client.connectTo(args.address, args.port, useSsl=args.usessl)
 	client.setTextHandler(textHandler)
 
-	client.run()
+	loop.run_forever()
+
+	

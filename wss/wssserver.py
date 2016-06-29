@@ -15,16 +15,15 @@ class Client:
 		self.handle.sendMessage(msg, isBinary)
 
 class Server:
-	clients = []
-	knownClients = {}
-	broadcastRate = 10
-	broadcastMsg = None
-	throttle = False
-	encodeMsg = False
-	debug = False
-	port=9001
 
-	def __init__(self, port = 9001, usessl = True, sslcert = "server.crt", sslkey= "server.key", auth=None, privateKeyFile = 'dhserver.key', clientsFile = "clients.json"):
+	def __init__(self, port = 9000, usessl = True, sslcert = "server.crt", sslkey= "server.key", auth=None, privateKeyFile = 'dhserver.key', clientsFile = "clients.json"):
+		self.clients = []
+		self.knownClients = {}
+		self.broadcastRate = 10
+		self.broadcastMsg = None
+		self.throttle = False
+		self.encodeMsg = False
+		self.debug = False
 		self.port = port
 		self.sslcert = sslcert
 		self.sslkey = sslkey
@@ -213,7 +212,7 @@ if __name__ == "__main__":
 	parser.add_argument('--debug', dest="debug", help="turn on debugging.", action='store_true')
 	parser.add_argument('--sslcert', dest="sslcert", default="server.crt", nargs=1, help="ssl certificate")
 	parser.add_argument('--sslkey', dest="sslkey", default="server.key", nargs=1, help="ssl key")
-	parser.add_argument('port', help="port of server", nargs="?", default=9001)
+	parser.add_argument('port', help="port of server", nargs="?", default=9000)
 
 	args = parser.parse_args()
 
@@ -226,7 +225,7 @@ if __name__ == "__main__":
 	def sendData():
 		while True:
 			try:
-				print("trying to broadcast...")
+				print("trying to broadcast to {} clients...".format(len(s.clients)))
 				s.broadcast("{'hello' : 'world' }")
 			except:
 				exc_type, exc_value, exc_traceback = sys.exc_info()
