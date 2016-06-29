@@ -53,6 +53,9 @@ class Client:
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
 					file=sys.stdout)
 			print ("connection failed")
+			return False
+
+		return True
 
 	def run(self):
 		loop = asyncio.get_event_loop()
