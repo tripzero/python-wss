@@ -10,9 +10,17 @@ import json
 class Client:
 	def __init__(self, handle):
 		self.handle = handle
+		self.closeHandler = None
+
+	def close(self):
+		if self.closeHandler:
+			self.closeHandler()
 
 	def sendMessage(self, msg, isBinary):
 		self.handle.sendMessage(msg, isBinary)
+
+	def setCloseHandler(self, callback):
+		self.closeHandler = callback
 
 class Server:
 
@@ -121,9 +129,14 @@ class Server:
 		sslcontext = None
 		if self.ssl:
 			print("using ssl")
-			sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-			sslcontext.load_cert_chain(self.sslcert, self.sslkey)
-			ws = "wss"
+			try:
+				sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+				sslcontext.load_cert_chain(self.sslcert, self.sslkey)
+			except:
+				sslcontext = None
+				print("failed to use ssl")
+
+			ws = "wss"	
 
 		ResourceProtocol.server = self
 

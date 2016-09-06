@@ -25,6 +25,8 @@ class Client:
 		self.debug = False
 		self.binaryHandler = None
 		self.textHandler = None
+		self.openHandler = None
+		self.closeHandler = None
 
 	def connectTo(self, addy, port, useSsl = True, auth=False):
 		ws = "ws"
@@ -91,7 +93,7 @@ class Client:
 				return
 
 			except asyncio.py33_exceptions.ConnectionRefusedError:
-				print("connection refused. retry in {} seconds...".format(timeout))
+				debug("connection refused. retry in {} seconds...".format(timeout))
 				yield asyncio.From(asyncio.sleep(timeout))
 				if timeout < maxtimeout:
 					timeout += 2
@@ -99,7 +101,7 @@ class Client:
 				continue
 
 			except OSError:
-				print("connection failed. retry in {} seconds...".format(timeout))
+				debug("connection failed. retry in {} seconds...".format(timeout))
 				yield asyncio.From(asyncio.sleep(timeout))
 
 				if timeout < maxtimeout:
@@ -112,13 +114,19 @@ class Client:
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
 						file=sys.stdout)
-				print ("connection failed")
+				debug ("connection failed")
 
 	def setBinaryHandler(self, binaryHandlerCallback):
 		self.binaryHandler = binaryHandlerCallback
 
 	def setTextHandler(self, textHandlerCallback):
 		self.textHandler = textHandlerCallback
+
+	def setOpenHandler(self, openHandlerCallback):
+		self.openHandler = openHandlerCallback
+
+	def setCloseHandler(self, closeHandlerCallback):
+		self.closeHandler = closeHandlerCallback
 
 	def sendTextMsg(self, msg):
 		self.client.sendMessage(msg, False)
@@ -132,6 +140,9 @@ class Client:
 		self.client.onCloseHandler = self.onClose
 		self.client.binaryHandler = self.binaryHandler
 		self.client.textHandler = self.textHandler
+
+		if self.openHandler:
+			self.openHandler()
 
 
 class MyClientProtocol(WebSocketClientProtocol):
@@ -172,21 +183,24 @@ class MyClientProtocol(WebSocketClientProtocol):
 			try:
 				self.binaryHandler(payload)
 			except KeyboardInterrupt:
-				quit()
+				raise KeyboardInterrupt()
+
 			except:
 				exc_type, exc_value, exc_traceback = sys.exc_info()
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
-						limit=2, file=sys.stdout)
+						limit=6, file=sys.stdout)
 		else:
 			try:
 				if self.textHandler:
 					self.textHandler(payload)
+			except KeyboardInterrupt:
+				raise KeyboardInterrupt()
 			except:
 				exc_type, exc_value, exc_traceback = sys.exc_info()
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
-						limit=2, file=sys.stdout)
+						limit=6, file=sys.stdout)
 
 	def onClose(self, wasClean, code, reason):
 		if self.onCloseHandler:
@@ -205,13 +219,22 @@ if __name__ == "__main__":
 	def textHandler(msg):
 		print(msg)
 
+	def opened():
+		print("connected")
+
+	def closed():
+		print("connection closed")
+
 	loop = asyncio.get_event_loop()
 	client = Client(retry=True, loop=loop)
 
 	client.debug = args.debug
 	
-	client.connectTo(args.address, args.port, useSsl=args.usessl)
 	client.setTextHandler(textHandler)
+	client.setOpenHandler(opened)
+	client.setCloseHandler(closed)
+	
+	client.connectTo(args.address, args.port, useSsl=args.usessl)
 
 	loop.run_forever()
 
