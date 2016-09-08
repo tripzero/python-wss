@@ -28,7 +28,7 @@ class Client:
 		self.openHandler = None
 		self.closeHandler = None
 
-	def connectTo(self, addy, port, useSsl = True, auth=False):
+	def connectTo(self, addy, port, useSsl = True, auth=False, url=None, protocols=None):
 		ws = "ws"
 		self.address = addy
 		self.port = port
@@ -41,10 +41,14 @@ class Client:
 			ws = "wss"
 			self.sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 
-		self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
+		if url:
+			self.wsaddress = url
+		else:
+			self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
+
 		debug("connectTo: " + self.wsaddress)
 
-		self.factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug)
+		self.factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug, protocols=protocols)
 		self.factory.client = self
 		self.factory.protocol = MyClientProtocol
 
