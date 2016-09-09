@@ -1,9 +1,6 @@
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 
-try:
-	import asyncio
-except:
-	import trollius as asyncio
+import trollius as asyncio
 
 import json
 import ssl
@@ -11,14 +8,16 @@ import cv2
 import numpy as np
 import traceback, sys
 import base64
-from dh import DH as DiffieHelmut
+from .dh import DH as DiffieHelmut
 
 def debug(msg):
 		print(msg)
 
 class Client:
 
-	def __init__(self, retry=False, loop = asyncio.get_event_loop()):
+	def __init__(self, retry=False, loop = None):
+		if not loop:
+			loop = asyncio.get_event_loop()
 		self.retry = retry
 		self.loop = loop
 		self.handle = None
@@ -157,8 +156,6 @@ class MyClientProtocol(WebSocketClientProtocol):
 	def __init__(self):
 		WebSocketClientProtocol.__init__(self)
 		
-		self.diffieHelmut = DiffieHelmut('dhclient.key')
-
 	def onConnect(self, response):
 		print("Server connected: {0}".format(response.peer))
 
@@ -168,6 +165,7 @@ class MyClientProtocol(WebSocketClientProtocol):
 		self.factory.client.registerClient(self)
 
 		if self.factory.client.auth:
+			self.diffieHelmut = DiffieHelmut('dhclient.key')
 			try:
 				payload = { "type" : "auth", "sharedSecret" : str(self.diffieHelmut.sharedSecret) }
 				payload = json.dumps(payload)

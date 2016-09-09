@@ -2,7 +2,7 @@ from autobahn.asyncio.websocket import WebSocketServerProtocol, WebSocketServerF
 import ssl
 
 import trollius as asyncio
-from dh import DH
+from .dh import DH
 import sys, traceback
 from binascii import hexlify
 import json
