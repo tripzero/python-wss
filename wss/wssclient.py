@@ -4,8 +4,6 @@ import trollius as asyncio
 
 import json
 import ssl
-import cv2
-import numpy as np
 import traceback, sys
 import base64
 from .dh import DH as DiffieHelmut
