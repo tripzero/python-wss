@@ -45,7 +45,7 @@ class Client:
 
 		debug("connectTo: " + self.wsaddress)
 
-		self.factory = WebSocketClientFactory(self.wsaddress, debug=self.debug, debugCodePaths=self.debug, protocols=protocols)
+		self.factory = WebSocketClientFactory(self.wsaddress, protocols=protocols)
 		self.factory.client = self
 		self.factory.protocol = MyClientProtocol
 

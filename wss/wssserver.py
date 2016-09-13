@@ -140,7 +140,7 @@ class Server:
 
 		ResourceProtocol.server = self
 
-		factory = WebSocketServerFactory(u"{0}://127.0.0.1:{1}".format(ws, self.port), debug=self.debug, debugCodePaths=self.debug)
+		factory = WebSocketServerFactory(u"{0}://127.0.0.1:{1}".format(ws, self.port))
 		factory.protocol = ResourceProtocol
 
 		loop = asyncio.get_event_loop()
@@ -165,7 +165,7 @@ class Server:
 			sslcontext = ssl.DefaultOpenSSLContextFactory(self.sslkey, self.sslcert)
 			ws = "wss"
 
-		factory = WebSocketServerFactory(u"{0}://127.0.0.1:9001".format(ws), debug=self.debug, debugCodePaths=self.debug)
+		factory = WebSocketServerFactory(u"{0}://127.0.0.1:9001".format(ws))
 		factory.protocol = ResourceProtocol
 
 		listenWS(factory, sslcontext)
