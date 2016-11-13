@@ -11,56 +11,23 @@ from .dh import DH as DiffieHelmut
 def debug(msg):
 		print(msg)
 
-class Client:
+class ReconnectAsyncio:
 
-	def __init__(self, retry=False, loop = None):
-		if not loop:
-			loop = asyncio.get_event_loop()
+	def __init__(self, retry = False, loop=None):
 		self.retry = retry
 		self.loop = loop
-		self.handle = None
-		self.debug = False
-		self.binaryHandler = None
-		self.textHandler = None
-		self.openHandler = None
-		self.closeHandler = None
+		if not loop:
+			self.loop = asyncio.get_event_loop()
 
-	def connectTo(self, addy, port, useSsl = True, auth=False, url=None, protocols=None):
-		ws = "ws"
-		self.address = addy
-		self.port = port
-		self.useSsl = useSsl
-		self.auth=auth
-		
-		self.sslcontext = None
-
-		if useSsl:
-			ws = "wss"
-			self.sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-
-		if url:
-			self.wsaddress = url
-		else:
-			self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
-
-		debug("connectTo: " + self.wsaddress)
-
-		self.factory = WebSocketClientFactory(self.wsaddress, protocols=protocols)
-		self.factory.client = self
-		self.factory.protocol = MyClientProtocol
-
-		MyClientProtocol.onCloseHandler = self.onClose
-
-		self._do_connect()
+	def _connect(self):
+		raise Exception("_connect() is an abstract class method.  You must implement this")
 
 	def _do_connect(self):
+		debug("_do_connect()...")
 		if self.retry:
 			self.loop.create_task(self._connect_retry())
 		else:
 			self.loop.create_task(self._connect_once())
-
-	def _connect(self):
-		return self.loop.create_connection(self.factory, self.address, self.port, ssl=self.sslcontext)
 		
 	@asyncio.coroutine
 	def _connect_once(self):
@@ -116,6 +83,53 @@ class Client:
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
 						file=sys.stdout)
 				debug ("connection failed")
+
+class Client(ReconnectAsyncio):
+
+	def __init__(self, retry=False, loop = None):
+		ReconnectAsyncio.__init__(retry=retry)
+
+		if not loop:
+			loop = asyncio.get_event_loop()
+		self.retry = retry
+		self.loop = loop
+		self.handle = None
+		self.debug = False
+		self.binaryHandler = None
+		self.textHandler = None
+		self.openHandler = None
+		self.closeHandler = None
+
+	def connectTo(self, addy, port, useSsl = True, auth=False, url=None, protocols=None):
+		ws = "ws"
+		self.address = addy
+		self.port = port
+		self.useSsl = useSsl
+		self.auth=auth
+		
+		self.sslcontext = None
+
+		if useSsl:
+			ws = "wss"
+			self.sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+
+		if url:
+			self.wsaddress = url
+		else:
+			self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
+
+		debug("connectTo: " + self.wsaddress)
+
+		self.factory = WebSocketClientFactory(self.wsaddress, protocols=protocols)
+		self.factory.client = self
+		self.factory.protocol = MyClientProtocol
+
+		MyClientProtocol.onCloseHandler = self.onClose
+
+		self._do_connect()
+
+	def _connect(self):
+		return self.loop.create_connection(self.factory, self.address, self.port, ssl=self.sslcontext)
 
 	def setBinaryHandler(self, binaryHandlerCallback):
 		self.binaryHandler = binaryHandlerCallback
