@@ -87,10 +87,11 @@ class ReconnectAsyncio:
 class Client(ReconnectAsyncio):
 
 	def __init__(self, retry=False, loop = None):
-		ReconnectAsyncio.__init__(retry=retry)
+		ReconnectAsyncio.__init__(self, retry=retry)
 
 		if not loop:
 			loop = asyncio.get_event_loop()
+
 		self.retry = retry
 		self.loop = loop
 		self.handle = None
@@ -146,9 +147,18 @@ class Client(ReconnectAsyncio):
 	def sendTextMsg(self, msg):
 		self.client.sendMessage(msg, False)
 
+	def sendBinaryMsg(self, msg):
+		self.client.sendMessage(msg, True)
+
+	def sendMessage(self, msg, isBinary=False):
+		self.client.sendMessage(msg, isBinary)
+
 	def onClose(self, wasClean, code, reason):
 		if self.retry:
 			self._do_connect()
+
+	def close(self, code=WebSocketClientProtocol.CLOSE_STATUS_CODE_NORMAL):
+		self.client.sendClose(code=code)
 
 	def registerClient(self, clientHndl):
 		self.client = clientHndl

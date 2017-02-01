@@ -62,6 +62,11 @@ class Server:
 	def hasClients(self):
 		return len(self.clients)
 
+	def client(self, client_handle):
+		for c in self.clients:
+			if c.handle == client_handle:
+				return c
+
 	def broadcast(self, msg):
 		try:
 			if self.throttle:
@@ -82,7 +87,9 @@ class Server:
 	def unregisterClient(self, client):
 		for c in self.clients:
 			if c.handle == client:
+				c.close()
 				self.clients.remove(c)
+				return True
 
 	def authenticate(self, client, sharedSecret):
 		#TODO: do real authentication
@@ -194,7 +201,7 @@ class ResourceProtocol(WebSocketServerProtocol):
 	def onMessage(self, payload, isBinary):
 		if isBinary:
 			print("Binary message received: {0} bytes".format(len(payload)))
-			ResourceProtocol.server.onBinaryMessage(payload, self)
+			ResourceProtocol.server.onBinaryMessage(payload, ResourceProtocol.server.client(self))
 		
 		else:
 
@@ -203,7 +210,7 @@ class ResourceProtocol(WebSocketServerProtocol):
 				# {'type' : 'auth', 'sharedSecret' : 'key'}
 				ResourceProtocol.server.authenticate(self, int(msg['sharedSecret']))
 			else:
-				ResourceProtocol.server.onMessage(payload, self)
+				ResourceProtocol.server.onMessage(payload, ResourceProtocol.server.client(self))
 
 	def onClose(self, wasClean, code, reason):
 		try:
@@ -216,7 +223,7 @@ class ResourceProtocol(WebSocketServerProtocol):
                           limit=2, file=sys.stdout)
 
 
-if __name__ == "__main__":
+def server_main(ServerClass = Server):
 	print("starting...")
 	import argparse
 
@@ -225,14 +232,25 @@ if __name__ == "__main__":
 	parser.add_argument('--debug', dest="debug", help="turn on debugging.", action='store_true')
 	parser.add_argument('--sslcert', dest="sslcert", default="server.crt", nargs=1, help="ssl certificate")
 	parser.add_argument('--sslkey', dest="sslkey", default="server.key", nargs=1, help="ssl key")
-	parser.add_argument('port', help="port of server", nargs="?", default=9000)
+	parser.add_argument('--port', help="port of server", default=9000)
 
 	args = parser.parse_args()
 
 	loop = asyncio.get_event_loop()
 
-	s = Server(usessl=args.usessl, port=args.port)
+	s = ServerClass(usessl=args.usessl, port=args.port)
 	s.debug = args.debug
+
+	s.start()
+	
+	return s
+
+
+if __name__ == "__main__":
+	
+	loop = asyncio.get_event_loop()
+
+	s = server_main()
 
 	@asyncio.coroutine
 	def sendData():
@@ -250,6 +268,6 @@ if __name__ == "__main__":
 
 	loop.create_task(sendData())
 
-	s.start()
 	loop.run_forever()
+
 
