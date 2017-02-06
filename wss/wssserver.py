@@ -240,8 +240,6 @@ def server_main(ServerClass = Server):
 
 	s = ServerClass(usessl=args.usessl, port=args.port)
 	s.debug = args.debug
-
-	s.start()
 	
 	return s
 
@@ -267,6 +265,8 @@ if __name__ == "__main__":
 			yield asyncio.From(asyncio.sleep(30))
 
 	loop.create_task(sendData())
+
+	s.start()
 
 	loop.run_forever()
 
