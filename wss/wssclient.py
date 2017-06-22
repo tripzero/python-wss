@@ -6,7 +6,6 @@ import json
 import ssl
 import traceback, sys
 import base64
-from .dh import DH as DiffieHelmut
 
 def debug(msg):
 		print(msg)
@@ -100,13 +99,13 @@ class Client(ReconnectAsyncio):
 		self.textHandler = None
 		self.openHandler = None
 		self.closeHandler = None
+		self.client = None
 
-	def connectTo(self, addy, port, useSsl = True, auth=False, url=None, protocols=None):
+	def connectTo(self, addy, port, useSsl = True, url=None, protocols=None):
 		ws = "ws"
 		self.address = addy
 		self.port = port
 		self.useSsl = useSsl
-		self.auth=auth
 		
 		self.sslcontext = None
 
@@ -145,12 +144,14 @@ class Client(ReconnectAsyncio):
 		self.closeHandler = closeHandlerCallback
 
 	def sendTextMsg(self, msg):
-		self.client.sendMessage(msg, False)
+		self.sendMessage(msg, False)
 
 	def sendBinaryMsg(self, msg):
-		self.client.sendMessage(msg, True)
+		self.sendMessage(msg, True)
 
 	def sendMessage(self, msg, isBinary=False):
+		if not self.client:
+			return
 		self.client.sendMessage(msg, isBinary)
 
 	def onClose(self, wasClean, code, reason):
@@ -166,8 +167,14 @@ class Client(ReconnectAsyncio):
 		self.client.binaryHandler = self.binaryHandler
 		self.client.textHandler = self.textHandler
 
-		if self.openHandler:
-			self.openHandler()
+		try:
+			if self.openHandler:
+				self.openHandler()
+		except:
+			exc_type, exc_value, exc_traceback = sys.exc_info()
+			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+			traceback.print_exception(exc_type, exc_value, exc_traceback,
+			      limit=6, file=sys.stdout)
 
 
 class MyClientProtocol(WebSocketClientProtocol):
@@ -185,22 +192,6 @@ class MyClientProtocol(WebSocketClientProtocol):
 		print("WebSocket connection open.")
 
 		self.factory.client.registerClient(self)
-
-		if self.factory.client.auth:
-			self.diffieHelmut = DiffieHelmut('dhclient.key')
-			try:
-				payload = { "type" : "auth", "sharedSecret" : str(self.diffieHelmut.sharedSecret) }
-				payload = json.dumps(payload)
-				try:
-					self.sendMessage(bytes(payload, 'utf8'), False)
-				except:
-					#probably on python2
-					self.sendMessage(payload, False)
-			except:
-				exc_type, exc_value, exc_traceback = sys.exc_info()
-				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
-				traceback.print_exception(exc_type, exc_value, exc_traceback,
-						limit=2, file=sys.stdout)
 
 	def onMessage(self, payload, isBinary):
 		if isBinary:
@@ -240,17 +231,19 @@ if __name__ == "__main__":
 	parser.add_argument('port', help="port", default=9000, nargs="?")
 	args = parser.parse_args()
 
+	loop = asyncio.get_event_loop()
+	client = Client(retry=True, loop=loop)
+
 	def textHandler(msg):
 		print(msg)
 
 	def opened():
 		print("connected")
+		client.sendMessage("{'foo' : 'bar'}")
 
 	def closed():
 		print("connection closed")
 
-	loop = asyncio.get_event_loop()
-	client = Client(retry=True, loop=loop)
 
 	client.debug = args.debug
 	
