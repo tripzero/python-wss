@@ -1,6 +1,6 @@
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 
-import trollius as asyncio
+import asyncio
 
 import json
 import ssl
@@ -21,8 +21,7 @@ class ReconnectAsyncio:
 	def _connect(self):
 		raise Exception("_connect() is an abstract class method.  You must implement this")
 
-	def _do_connect(self):
-		debug("_do_connect()...")
+	def _do_connect(self):		
 		if self.retry:
 			self.loop.create_task(self._connect_retry())
 		else:
@@ -31,9 +30,9 @@ class ReconnectAsyncio:
 	@asyncio.coroutine
 	def _connect_once(self):
 		try:
-			yield asyncio.From(self._connect())
+			yield from self._connect()
 
-		except asyncio.py33_exceptions.ConnectionRefusedError:
+		except ConnectionRefusedError:
 			print("connection refused")
  
 		except OSError:
@@ -54,14 +53,14 @@ class ReconnectAsyncio:
 		while True:
 			try:
 				debug("connecting...")
-				yield asyncio.From(self._connect())
+				yield from self._connect()
 
 				debug("connected!")
 				return
 
-			except asyncio.py33_exceptions.ConnectionRefusedError:
+			except ConnectionRefusedError:
 				debug("connection refused. retry in {} seconds...".format(timeout))
-				yield asyncio.From(asyncio.sleep(timeout))
+				yield from asyncio.sleep(timeout)
 				if timeout < maxtimeout:
 					timeout += 2
 
@@ -69,7 +68,7 @@ class ReconnectAsyncio:
 
 			except OSError:
 				debug("connection failed. retry in {} seconds...".format(timeout))
-				yield asyncio.From(asyncio.sleep(timeout))
+				yield from asyncio.sleep(timeout)
 
 				if timeout < maxtimeout:
 					timeout += 2
@@ -143,8 +142,8 @@ class Client(ReconnectAsyncio):
 	def setCloseHandler(self, closeHandlerCallback):
 		self.closeHandler = closeHandlerCallback
 
-	def sendTextMsg(self, msg):
-		self.sendMessage(msg, False)
+	def sendTextMsg(self, msg, encoding='utf-8'):
+		self.sendMessage(msg.encode(encoding), False)
 
 	def sendBinaryMsg(self, msg):
 		self.sendMessage(msg, True)
@@ -159,7 +158,8 @@ class Client(ReconnectAsyncio):
 			self._do_connect()
 
 	def close(self, code=WebSocketClientProtocol.CLOSE_STATUS_CODE_NORMAL):
-		self.client.sendClose(code=code)
+		if self.client:
+			self.client.sendClose(code=code)
 
 	def registerClient(self, clientHndl):
 		self.client = clientHndl
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
 	def opened():
 		print("connected")
-		client.sendMessage("{'foo' : 'bar'}")
+		client.sendTextMsg("{'foo' : 'bar'}")
 
 	def closed():
 		print("connection closed")

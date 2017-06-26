@@ -1,7 +1,7 @@
 from autobahn.asyncio.websocket import WebSocketServerProtocol, WebSocketServerFactory
 import ssl
 
-import trollius as asyncio
+import asyncio
 import sys, traceback
 from binascii import hexlify
 import json
@@ -22,6 +22,12 @@ class Client:
 
 	def sendMessage(self, msg, isBinary):
 		self.handle.sendMessage(msg, isBinary)
+
+	def sendTextMsg(self, msg, encoding='utf-8'):
+		self.sendMessage(msg.encode(encoding), False)
+
+	def sendBinaryMsg(self, msg):
+		self.sendMessage(msg, True)
 
 	def setCloseHandler(self, callback):
 		self.closeHandler = callback
@@ -52,7 +58,7 @@ class Server:
 			if c.handle == client_handle:
 				return c
 
-	def broadcast(self, msg):
+	def broadcast(self, msg, isBinary = False):
 		try:
 			if self.throttle:
 				self.broadcastMsg = msg
@@ -60,13 +66,16 @@ class Server:
 				if self.encodeMsg:
 					msg = base64.b64encode(self.msg)
 				for c in self.clients:
-					c.sendMessage(msg, False)
+					if isBinary:
+						c.sendBinaryMsg(msg)
+					else:
+						c.sendTextMsg(msg)
 		except:
 			print("exception while broadcast()")
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
-                          limit=2, file=sys.stdout)
+                          limit=6, file=sys.stdout)
 
 
 	def unregisterClient(self, client):
@@ -106,6 +115,7 @@ class Server:
 			try:
 				sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 				sslcontext.load_cert_chain(self.sslcert, self.sslkey)
+				self.print_debug("using ssl")
 			except:
 				sslcontext = None
 				print("failed to use ssl")
@@ -150,10 +160,10 @@ class ResourceProtocol(WebSocketServerProtocol):
 	server = None
 
 	def onConnect(self, request):
-		print("Client connecting: {0}".format(request.peer))
+		ResourceProtocol.server.print_debug("Client connecting: {0}".format(request.peer))
 
 	def onOpen(self):
-		print("WebSocket connection open.")
+		ResourceProtocol.server.print_debug("WebSocket connection open.")
 		ResourceProtocol.server.registerClient(self)
 
 	def onMessage(self, payload, isBinary):
@@ -170,7 +180,7 @@ class ResourceProtocol(WebSocketServerProtocol):
 
 	def onClose(self, wasClean, code, reason):
 		try:
-			print("WebSocket connection closed: {0}".format(reason))
+			ResourceProtocol.server.print_debug("WebSocket connection closed: {0}".format(reason))
 			ResourceProtocol.server.unregisterClient(self)
 		except:
 			exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -180,7 +190,7 @@ class ResourceProtocol(WebSocketServerProtocol):
 
 
 def server_main(ServerClass = Server, **kwargs):
-	print("starting...")
+
 	import argparse
 
 	parser = argparse.ArgumentParser()
@@ -190,11 +200,14 @@ def server_main(ServerClass = Server, **kwargs):
 	parser.add_argument('--sslkey', dest="sslkey", default="server.key", nargs=1, help="ssl key")
 	parser.add_argument('--port', help="port of server", default=9000)
 
-	args = parser.parse_args()
+	args, unknown = parser.parse_known_args()
 
 	loop = asyncio.get_event_loop()
 
-	s = ServerClass(useSsl=args.usessl, port=args.port, **kwargs)
+	if args.port:
+		kwargs["port"] = args.port
+
+	s = ServerClass(useSsl=args.usessl, **kwargs)
 	s.debug = args.debug
 	
 	return s
@@ -211,14 +224,14 @@ if __name__ == "__main__":
 		while True:
 			try:
 				print("trying to broadcast to {} clients...".format(len(s.clients)))
-				s.broadcast("{'hello' : 'world' }")
+				s.broadcast("{'hello' : 'world' }", False)
 			except:
 				exc_type, exc_value, exc_traceback = sys.exc_info()
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
 	                          limit=2, file=sys.stdout)
 
-			yield asyncio.From(asyncio.sleep(30))
+			yield from asyncio.sleep(30)
 
 	loop.create_task(sendData())
 
