@@ -7,15 +7,22 @@ import ssl
 import traceback, sys
 import base64
 
-def debug(msg):
-		print(msg)
+class DebugPrinter:
+	def __init__(self, debug = False):
+		self.debug = debug
 
-class ReconnectAsyncio:
+	def print_debug(self, msg):
+		if self.debug:
+			print(msg)
 
-	def __init__(self, retry = False, loop=None):
+class ReconnectAsyncio(DebugPrinter):
+
+	def __init__(self, retry = False, loop=None, debug = False):
+		DebugPrinter.__init__(self, debug)
 		self.address = None
 		self.retry = retry
 		self.loop = loop
+
 		if not loop:
 			self.loop = asyncio.get_event_loop()
 
@@ -34,17 +41,17 @@ class ReconnectAsyncio:
 			yield from self._connect()
 
 		except ConnectionRefusedError:
-			print("connection refused ({})".format(self.address))
+			self.print_debug("connection refused ({})".format(self.address))
  
 		except OSError:
-			print("connection failed ({})".format(self.address))
+			self.print_debug("connection failed ({})".format(self.address))
 			
 		except:
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
 					file=sys.stdout)
-			print ("connection failed ({})".format(self.address))
+			self.print_debug("connection failed ({})".format(self.address))
 
 	@asyncio.coroutine
 	def _connect_retry(self):
@@ -53,14 +60,14 @@ class ReconnectAsyncio:
 
 		while True:
 			try:
-				debug("connecting...")
+				self.print_debug("connecting...")
 				yield from self._connect()
 
-				debug("connected!")
+				self.print_debug("connected!")
 				return
 
 			except ConnectionRefusedError:
-				debug("connection refused ({}). retry in {} seconds...".format(self.address, timeout))
+				self.print_debug("connection refused ({}). retry in {} seconds...".format(self.address, timeout))
 				yield from asyncio.sleep(timeout)
 				if timeout < maxtimeout:
 					timeout += 2
@@ -68,7 +75,7 @@ class ReconnectAsyncio:
 				continue
 
 			except OSError:
-				debug("connection failed ({}). retry in {} seconds...".format(self.address, timeout))
+				self.print_debug("connection failed ({}). retry in {} seconds...".format(self.address, timeout))
 				yield from asyncio.sleep(timeout)
 
 				if timeout < maxtimeout:
@@ -81,7 +88,7 @@ class ReconnectAsyncio:
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
 						file=sys.stdout)
-				debug ("connection failed ({})".format(self.address))
+				self.print_debug("connection failed ({})".format(self.address))
 
 class Client(ReconnectAsyncio):
 
@@ -118,7 +125,7 @@ class Client(ReconnectAsyncio):
 		else:
 			self.wsaddress = "{0}://{1}:{2}".format(ws, addy, port)
 
-		debug("connectTo: " + self.wsaddress)
+		self.print_debug("connectTo: " + self.wsaddress)
 
 		self.factory = WebSocketClientFactory(self.wsaddress, protocols=protocols)
 		self.factory.client = self
@@ -179,18 +186,18 @@ class Client(ReconnectAsyncio):
 
 
 class MyClientProtocol(WebSocketClientProtocol):
-	binaryHandler = None
-	textHandler = None
-	onCloseHandler = None
 	
 	def __init__(self):
 		WebSocketClientProtocol.__init__(self)
+		self.binaryHandler = None
+		self.textHandler = None
+		self.onCloseHandler = None
 		
 	def onConnect(self, response):
-		print("Server connected: {0}".format(response.peer))
+		self.factory.client.print_debug("Server connected: {0}".format(response.peer))
 
 	def onOpen(self):
-		print("WebSocket connection open.")
+		self.factory.client.print_debug("WebSocket connection open.")
 
 		self.factory.client.registerClient(self)
 

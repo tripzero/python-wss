@@ -6,6 +6,8 @@ import sys, traceback
 from binascii import hexlify
 import json
 
+from .wssclient import DebugPrinter
+
 class Client:
 	def __init__(self, handle):
 		self.handle = handle
@@ -32,9 +34,10 @@ class Client:
 	def setCloseHandler(self, callback):
 		self.closeHandler = callback
 
-class Server:
+class Server(DebugPrinter):
 
-	def __init__(self, port = 9000, useSsl = True, sslCert = "server.crt", sslKey= "server.key"):
+	def __init__(self, port = 9000, useSsl = True, sslCert = "server.crt", sslKey= "server.key", debug = True):
+		DebugPrinter.__init__(self, debug)
 		self.clients = []
 		self.knownClients = {}
 		self.broadcastRate = 10
@@ -71,7 +74,7 @@ class Server:
 					else:
 						c.sendTextMsg(msg)
 		except:
-			print("exception while broadcast()")
+			self.print_debug("exception while broadcast()")
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
@@ -101,10 +104,6 @@ class Server:
 		"override this in subclass"
 		pass
 
-	def print_debug(self, msg):
-		if self.debug:
-			print(msg)
-
 	def start(self):
 		self.print_debug("start() called... debug = {}".format(self.debug))
 		ws = "ws"
@@ -118,7 +117,7 @@ class Server:
 				self.print_debug("using ssl")
 			except:
 				sslcontext = None
-				print("failed to use ssl")
+				self.print_debug("failed to use ssl")
 
 			ws = "wss"	
 
@@ -243,5 +242,3 @@ if __name__ == "__main__":
 	s.start()
 
 	loop.run_forever()
-
-
