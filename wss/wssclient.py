@@ -13,6 +13,7 @@ def debug(msg):
 class ReconnectAsyncio:
 
 	def __init__(self, retry = False, loop=None):
+		self.address = None
 		self.retry = retry
 		self.loop = loop
 		if not loop:
@@ -33,17 +34,17 @@ class ReconnectAsyncio:
 			yield from self._connect()
 
 		except ConnectionRefusedError:
-			print("connection refused")
+			print("connection refused ({})".format(self.address))
  
 		except OSError:
-			print("connection failed")
+			print("connection failed ({})".format(self.address))
 			
 		except:
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
 					file=sys.stdout)
-			print ("connection failed")
+			print ("connection failed ({})".format(self.address))
 
 	@asyncio.coroutine
 	def _connect_retry(self):
@@ -59,7 +60,7 @@ class ReconnectAsyncio:
 				return
 
 			except ConnectionRefusedError:
-				debug("connection refused. retry in {} seconds...".format(timeout))
+				debug("connection refused ({}). retry in {} seconds...".format(self.address, timeout))
 				yield from asyncio.sleep(timeout)
 				if timeout < maxtimeout:
 					timeout += 2
@@ -67,7 +68,7 @@ class ReconnectAsyncio:
 				continue
 
 			except OSError:
-				debug("connection failed. retry in {} seconds...".format(timeout))
+				debug("connection failed ({}). retry in {} seconds...".format(self.address, timeout))
 				yield from asyncio.sleep(timeout)
 
 				if timeout < maxtimeout:
@@ -80,7 +81,7 @@ class ReconnectAsyncio:
 				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
 				traceback.print_exception(exc_type, exc_value, exc_traceback,
 						file=sys.stdout)
-				debug ("connection failed")
+				debug ("connection failed ({})".format(self.address))
 
 class Client(ReconnectAsyncio):
 
@@ -255,4 +256,3 @@ if __name__ == "__main__":
 
 	loop.run_forever()
 
-	
