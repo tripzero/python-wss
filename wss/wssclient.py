@@ -15,6 +15,7 @@ class ReconnectAsyncio:
 	def __init__(self, retry = False, loop=None):
 		self.retry = retry
 		self.loop = loop
+		self.address = None
 		if not loop:
 			self.loop = asyncio.get_event_loop()
 
@@ -53,14 +54,14 @@ class ReconnectAsyncio:
 
 		while True:
 			try:
-				debug("connecting...")
+				debug("connecting ({})...".format(self.address))
 				yield asyncio.From(self._connect())
 
 				debug("connected!")
 				return
 
 			except asyncio.py33_exceptions.ConnectionRefusedError:
-				debug("connection refused. retry in {} seconds...".format(timeout))
+				debug("connection refused ({}). retry in {} seconds...".format(self.address, timeout))
 				yield asyncio.From(asyncio.sleep(timeout))
 				if timeout < maxtimeout:
 					timeout += 2
@@ -68,7 +69,7 @@ class ReconnectAsyncio:
 				continue
 
 			except OSError:
-				debug("connection failed. retry in {} seconds...".format(timeout))
+				debug("connection failed ({}). retry in {} seconds...".format(self.address, timeout))
 				yield asyncio.From(asyncio.sleep(timeout))
 
 				if timeout < maxtimeout:
