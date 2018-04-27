@@ -160,7 +160,8 @@ class Client(ReconnectAsyncio):
 			self._do_connect()
 
 	def close(self, code=WebSocketClientProtocol.CLOSE_STATUS_CODE_NORMAL):
-		self.client.sendClose(code=code)
+		if self.client:
+			self.client.sendClose(code=code)
 
 	def registerClient(self, clientHndl):
 		self.client = clientHndl
