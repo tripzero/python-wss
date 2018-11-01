@@ -17,7 +17,7 @@ basic usage:
 
 ```python
 import wss
-import trollius as asyncio
+import asyncio
 
 loop = asyncio.get_event_loop()
 
@@ -34,18 +34,18 @@ server.onMessage = onTextMessage
 server.onBinaryMessage = onBinaryMessage
 
 @asyncio.coroutine
-	def sendData():
-		while True:
-			try:
-				print("trying to broadcast...")
-				s.broadcast("{'hello' : 'world' }")
-			except:
-				exc_type, exc_value, exc_traceback = sys.exc_info()
-				traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
-				traceback.print_exception(exc_type, exc_value, exc_traceback,
-	                          limit=2, file=sys.stdout)
+def sendData():
+	while True:
+		try:
+			print("trying to broadcast...")
+			s.broadcast("{'hello' : 'world' }")
+		except:
+			exc_type, exc_value, exc_traceback = sys.exc_info()
+			traceback.print_tb(exc_traceback, limit=1, file=sys.stdout)
+			traceback.print_exception(exc_type, exc_value, exc_traceback,
+                          limit=2, file=sys.stdout)
 
-			yield asyncio.From(asyncio.sleep(30))
+		yield from asyncio.sleep(30)
 
 loop.create_task(sendData())
 
