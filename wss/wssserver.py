@@ -44,10 +44,10 @@ class Server(DebugPrinter):
 		self.broadcastMsg = None
 		self.throttle = False
 		self.encodeMsg = False
-		self.debug = False
+		self.debug = debug
 		self.port = port
 		self.sslcert = sslCert
-		self.ssley = sslKey
+		self.sslkey = sslKey
 		self.ssl = useSsl
 
 	def registerClient(self, client):
@@ -110,14 +110,14 @@ class Server(DebugPrinter):
 
 		sslcontext = None
 		if self.ssl:
-			self.print_debug("using ssl")
 			try:
 				sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 				sslcontext.load_cert_chain(self.sslcert, self.sslkey)
 				self.print_debug("using ssl")
-			except:
+			except Exception as ex:
 				sslcontext = None
 				self.print_debug("failed to use ssl")
+				raise Exception("failed to use ssl: {}".format(ex))
 
 			ws = "wss"	
 

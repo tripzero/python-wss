@@ -24,14 +24,14 @@ loop = asyncio.get_event_loop()
 server =  wss.Server(port=1234, usessl=True, sslcert="path/to/cert.crt", 
                      sslkey="path/to/server.key", auth=None)
 
-def onTextMessage(server, msg, client):
+def onTextMessage(msg, client):
 	print("got message from client:", msg)
 
-def onBinaryMessage(server, msg, client):
+def onBinaryMessage(msg, client):
 	print("got binary message")
 
-server.onMessage = onTextMessage
-server.onBinaryMessage = onBinaryMessage
+server.setTextHandler(onTextMessage)
+server.setBinaryHandler(onBinaryMessage)
 
 @asyncio.coroutine
 def sendData():

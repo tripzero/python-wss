@@ -10,11 +10,10 @@ def test_server_client():
 
     to_send = "hello world"
     to_reply = "foo bar"
-    client_connected = False
+
     received = False
     server_received = False
-    sent = False
-
+  
     @asyncio.coroutine
     def sendData():
         while True:
@@ -28,7 +27,7 @@ def test_server_client():
                 traceback.print_exception(exc_type, exc_value, exc_traceback,
                               limit=2, file=sys.stdout)
 
-            yield from asyncio.sleep(30)
+            yield from asyncio.sleep(0.1)
 
     loop.create_task(sendData())
 
@@ -37,7 +36,7 @@ def test_server_client():
         assert msg == bytes(to_reply, 'utf-8')
         server_received = True
 
-    s.onMessage = onMessage
+    s.setTextHandler(onMessage)
 
     s.start()
 
@@ -45,13 +44,12 @@ def test_server_client():
 
     def textHandler(msg):
         print(msg)
-        assert str(msg) == to_send
+        assert msg.decode('utf-8') == to_send
         received = True
 
     def opened():
         print("client connected")
-        client_connected = True
-        print(client_connected)
+        print(client.connected)
         client.sendTextMsg(to_reply)
 
     def closed():
@@ -72,7 +70,7 @@ def test_server_client():
     loop.call_later(5, stop_loop)
     loop.run_forever()
 
-    assert client_connected
+    assert client.connected
     assert sent
     assert received
     assert server_received

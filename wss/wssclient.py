@@ -184,6 +184,12 @@ class Client(ReconnectAsyncio):
 			traceback.print_exception(exc_type, exc_value, exc_traceback,
 			      limit=6, file=sys.stdout)
 
+	@property
+	def connected(self):
+		if self.client:
+			return self.client.connected
+	
+
 
 class MyClientProtocol(WebSocketClientProtocol):
 	
@@ -192,14 +198,16 @@ class MyClientProtocol(WebSocketClientProtocol):
 		self.binaryHandler = None
 		self.textHandler = None
 		self.onCloseHandler = None
+		self.connected = False
 		
 	def onConnect(self, response):
 		self.factory.client.print_debug("Server connected: {0}".format(response.peer))
 
 	def onOpen(self):
+		self.connected = True
 		self.factory.client.print_debug("WebSocket connection open.")
-
 		self.factory.client.registerClient(self)
+
 
 	def onMessage(self, payload, isBinary):
 		if isBinary:
@@ -226,6 +234,8 @@ class MyClientProtocol(WebSocketClientProtocol):
 						limit=6, file=sys.stdout)
 
 	def onClose(self, wasClean, code, reason):
+		self.connected = False
+
 		if self.onCloseHandler:
 			self.onCloseHandler(wasClean, code, reason)
 
